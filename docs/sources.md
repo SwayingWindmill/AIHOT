@@ -252,7 +252,9 @@ Content-Type: application/json
   "sourceId": "my-crawler",
   "sourceName": "我的抓取脚本",
   "items": [
-    { "title": "必填", "url": "必填", "publishedAt": "2026-10-01T08:00:00+08:00", "author": "可选" }
+    { "title": "必填", "url": "必填", "publishedAt": "2026-10-01T08:00:00+08:00", "author": "可选",
+      "bodyText": "可选，正文", "excerpt": "可选，摘要",
+      "media": [{ "kind": "image", "url": "https://…", "width": 800, "height": 600, "alt": "可选" }] }
   ]
 }
 ```
@@ -260,6 +262,8 @@ Content-Type: application/json
 - `INGEST_TOKEN` 在 `.env` 里设置，至少 16 位；不设置时接口一律返回 401。
 - 每次最多 50 条，超过返回 413。每个客户端每分钟能推几次由 `INGEST_RATE_LIMIT` 决定：`docker compose` 默认 10，超过返回 429（带 `Retry-After: 60`）；不用 Docker 时默认不限，前面没有反向代理限流的话在 `.env` 里设上，设成 0 表示不限。
 - 返回 `{"ok": true, "created": <新建条数>}`。不是 JSON 对象的条目、缺标题或网址的条目会被跳过，同一请求里重复的网址只取第一条。
+- 抓取方已经拿到正文的（比如要登录才能看的社交平台帖子），把它放进 `bodyText`（去掉首尾空白，最长 200000 字，空串视为没有）。带了正文的条目不再等站里去抓原网页，直接进入精选。不带正文的条目行为不变：站里会去抓原网页，抓不到再按标题和摘要判断。
+- `excerpt` 是可选的摘要，最长 2000 字。`media` 是可选的图片和视频列表，最多 20 个；每个是 `{ kind, url, width?, height?, alt?, poster? }`，`kind` 只能是 `image` 或 `video`，`url` 和 `poster` 只收 http/https 地址。不合格的媒体项会被静默丢掉，不影响条目本身；不带这几个字段时行为和以前完全一样。
 - `sourceId` 不存在时会自动建一个 `external` 信源，默认不进公开页面：到后台把它的参与方式改成 `editorial` 才会出现在站上。
 - 在后台暂停信源后，推送接口返回 409，不再接收新文章；恢复信源后可以继续推送。
 - 条目的 `raw._aihot.backfill` 为 `true` 时按历史回灌处理（不进入“今天”、不推送）。
