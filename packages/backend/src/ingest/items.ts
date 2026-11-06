@@ -2,12 +2,15 @@
 // rule as every other entrance: old or future-dated items and explicit backfill never count as
 // today's news and are never pushed. Unknown sources are created isolated, awaiting an operator.
 import { sql } from "../db.ts";
-import { upsertMaterial } from "../content/materials.ts";
+import { upsertMaterial, type MediaItem } from "../content/materials.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { readPublicationDate } from "../sources/dates.ts";
 import { normalizeUrl } from "../lib/url.ts";
 
 export const MAX_ITEMS = 50;
+export const MAX_BODY_CHARS = 200_000;
+export const MAX_EXCERPT_CHARS = 2_000;
+export const MAX_MEDIA = 20;
 
 export class IngestError extends Error {
   readonly status: number;
@@ -22,7 +25,45 @@ interface ItemIn {
   url?: unknown;
   publishedAt?: unknown;
   author?: unknown;
+  bodyText?: unknown;
+  excerpt?: unknown;
+  media?: unknown;
   raw?: { _aihot?: { backfill?: boolean; baseline?: boolean } } & Record<string, unknown>;
+}
+
+const text = (v: unknown, max: number): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+
+function httpUrl(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const url = v.trim();
+  try {
+    return /^https?:$/.test(new URL(url).protocol) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+const dimension = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : undefined);
+
+/** Reported media: http(s) images and videos only; anything else is dropped. */
+function readMedia(v: unknown): MediaItem[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: MediaItem[] = [];
+  for (const m of v) {
+    if (out.length >= MAX_MEDIA) break;
+    if (!m || typeof m !== "object") continue;
+    const { kind, url, width, height, alt, poster } = m as Record<string, unknown>;
+    const src = httpUrl(url);
+    if ((kind !== "image" && kind !== "video") || !src) continue;
+    out.push({
+      kind, url: src,
+      ...(dimension(width) && { width: dimension(width) }),
+      ...(dimension(height) && { height: dimension(height) }),
+      ...(text(alt, 500) && { alt: text(alt, 500) }),
+      ...(httpUrl(poster) && { poster: httpUrl(poster) }),
+    });
+  }
+  return out.length ? out : undefined;
 }
 
 export async function ingestItems(body: { sourceId?: unknown; sourceName?: unknown; items?: unknown }): Promise<{ ok: true; created: number }> {
@@ -59,6 +100,9 @@ export async function ingestItems(body: { sourceId?: unknown; sourceName?: unkno
       title,
       author: typeof it.author === "string" ? it.author.slice(0, 200) : null,
       ...publication,
+      bodyText: text(it.bodyText, MAX_BODY_CHARS),
+      excerpt: text(it.excerpt, MAX_EXCERPT_CHARS),
+      media: readMedia(it.media),
       raw: it.raw ?? null,
       via: "ingest",
       backfill: flags.backfill ? "reported-backfill" : flags.baseline ? "reported-baseline" : null,
