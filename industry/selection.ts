@@ -3,6 +3,9 @@
 // 确认新闻身份与新增价值后，由发布规则决定展示（见 docs/selection.md），卡片上显示两次的平均分。
 // 门槛按信源分级区分：官方一手信源的门槛低一些，媒体和个人的高一些；信源类别再把某些官方信源的门槛抬高。
 // 改了门槛或评分提示词，用 scripts/eval-selection.ts 在你自己标注的样本上重跑一遍，再决定上线（见 docs/selection.md）。
+//
+// 下面的数是大熊猫行业包的起点，还没有校准：沿用了 AIHOT 在 AI 领域的分级门槛，只把日常类信源单独抬高。
+// 公开上线前，用 100–200 条人工标注的大熊猫样本（docs/selection.md 的“校准”）跑 scripts/eval-selection.ts，再定这些数。
 
 export const SELECTION = {
   /**
@@ -12,15 +15,13 @@ export const SELECTION = {
    */
   thresholds: { T1: 60, T1_5: 65, T2: 76 } as Record<string, number>,
   /**
-   * 信源类别 → 门槛下限。分级只说明来源是不是官方、一手；有些官方信源的日常内容主要写给开发者或业内，
+   * 信源类别 → 门槛下限。分级只说明来源是不是官方、一手；有些官方信源的日常内容远多于新闻，
    * 读者要看的只是其中的大事，就在后台“信源”里给它一个类别，门槛抬到不低于这里的数。
    * 只抬不降：分级门槛本来就更高的（媒体）不受影响。没有类别的信源只按分级。
-   *   ecosystem 生态与基础设施：芯片与硬件、推理与云服务、模型托管、开发框架与工具链、安全研究厂商、工程与开发者博客
-   *   leaderboard 评测榜单：给各家模型跑分、排名的评测机构
+   *   daily_feed 日常直播与日常更新：熊猫直播频道、以日常视频为主的场馆账号
    */
   classes: {
-    ecosystem: { label: "生态与基础设施", threshold: 70 },
-    leaderboard: { label: "评测榜单", threshold: 76 },
+    daily_feed: { label: "日常直播与日常更新", threshold: 70 },
   } as Record<string, { label: string; threshold: number }>,
   /**
    * 没入选、但平均分高于这个数的资料，也用精选的写法（内容理解：标题、摘要、推荐理由）来写，

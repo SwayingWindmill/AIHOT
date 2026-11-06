@@ -1,155 +1,117 @@
-// 这个行业的分类体系：类别、标签词表、公司（主体）名录，以及防止张冠李戴的身份词典。
+// 这个行业的分类体系：类别、标签词表、机构（主体）名录，以及防止张冠李戴的身份词典。
 // 模型按这里的词表打标签，主题页（topics.json）按标签归类，筛选栏按类别分组。
-// 换行业时：类别的 key 会出现在网址里（/all?category=…），上线后就不要再改；标签和名录可以随时增减。
+// 类别的 key 会出现在网址里（/all?category=…），上线后就不要再改；标签和名录可以随时增减。
+//
+// 主体是机构（繁育基地、动物园、保护区），不是单只大熊猫：大熊猫有近千只，全列进每次调用的提示词太长。
+// 单只大熊猫由吱熊猫的采集词表打上（raw.pandaSlugs），之后由吱熊猫的接口解析。
+import { INSTITUTIONS } from "./institutions.ts";
 
 /**
  * 网页上的类别（筛选栏、卡片角标、RSS 分类订阅）。key 是网址和接口里的身份，上线后不要改。
  * section 是日报里的分节标题（几个类别可以共用一节，按这里的顺序排）；guide 告诉结构抽取模型这一类收什么、
  * 和相邻类别的边界在哪（总的归类原则写在 prompts/structure.md 里）。
- * commentary 标出评论类（教程、观点）：日报写过的事又有评论类的后续报道，只占一行快讯（报道它的信源够多时除外）。
- * 没归上类的资料在日报里放进第一个 key 为 industry 的类别所在的节（没有就放最后一节）。
+ * commentary 标出日常类：日报写过的事又有日常类的后续报道（比如出生消息之后的幼崽视频），只占一行快讯（报道它的信源够多时除外）。
+ * 没归上类的资料在日报里放进最后一节（日常）。
  * tagColor 是飞书推送卡片里跟在标题后面的这一类小标签的颜色（飞书 text_tag 的颜色名）。
- * feedLabel 是分类 RSS 标题里的名字（不写就用 label）。公开接口、RSS 和 MCP 里要把一类并进另一类发布，写在站点设置里（site/site.ts 的 PUBLIC_CATEGORIES）。
+ * feedLabel 是分类 RSS 标题里的名字（不写就用 label）。
  */
 export const CATEGORIES = [
-  { key: "ai-models", tagColor: "indigo", label: "模型", feedLabel: "AI 模型", section: "模型发布/更新", guide: "模型本身的发布、版本、权重开放、能力或价格变化，以及既有榜单上的模型成绩。公布一次跑分不是发布新基准，也不是教程。" },
-  { key: "ai-products", tagColor: "turquoise", label: "产品", feedLabel: "AI 产品", section: "产品发布/更新", guide: "可使用的 AI 产品、功能、应用、工具、API、平台和工程组件的发布更新。模型厂商发布的推理框架、算子库、硬件适配组件仍是产品，不能因为厂商名归成模型。" },
-  { key: "industry", tagColor: "orange", label: "行业", feedLabel: "行业动态", section: "行业动态", guide: "已发生的公司经营、融资并购、人事、合作、诉讼、政策、真实安全事故及调查进展。新闻由当事人发帖、带有态度，也不因此变成观点。" },
-  { key: "paper", tagColor: "violet", label: "论文", feedLabel: "论文", section: "论文研究", guide: "以新研究方法、实验设计与发现为核心的论文、技术报告、新基准或研究数据集。系统性红队实验属于研究；既有榜单成绩归模型，真实事故的新闻调查归行业。" },
-  { key: "tip", tagColor: "green", label: "教程", section: "技巧与观点", guide: "读者可以照着使用的方法、提示词、工具用法、工程实践复盘与技术讲解。重点是可复用的做法；单纯发布工具归产品，只有态度和预测而无做法归观点。", commentary: true },
-  { key: "opinion", tagColor: "purple", label: "观点", section: "技巧与观点", guide: "重点是作者的解释、判断、主张、预测、评论或访谈观点。讨论市场不自动归行业，作者是名人不自动归观点。", commentary: true },
+  { key: "breeding", tagColor: "carmine", label: "繁育", feedLabel: "繁育与幼崽", section: "繁育与成长", guide: "机构确认的配种、怀孕、产仔、双胞胎，以及幼崽的满月、百天、断奶、离开妈妈独立生活等成长节点。粉丝猜测的“疑似怀孕”不算确认；幼崽的日常萌态视频归日常。" },
+  { key: "health", tagColor: "red", label: "健康", feedLabel: "健康与离世", section: "健康与离世", guide: "机构通报的疾病、受伤、治疗、体检结果、衰老护理，以及大熊猫离世和讣告。离世周年、生日回顾和悼念帖不是新的离世，归日常；粉丝凭视频推测的健康问题没有机构说明时，不当作病情。" },
+  { key: "moves", tagColor: "orange", label: "迁移", feedLabel: "迁移与旅外", section: "迁移与旅外", guide: "大熊猫在机构之间转运、赴海外合作、旅外大熊猫回国、隔离检疫、入住新馆和与公众见面。写明是宣布、启程还是已经抵达；海外回国以接收的国内基地公告为准。" },
+  { key: "naming", tagColor: "yellow", label: "命名", section: "繁育与成长", guide: "机构正式公布的名字和命名仪式。征名投票、候选名和粉丝起的昵称还不是正式名字，征名活动本身归场馆。" },
+  { key: "venue", tagColor: "turquoise", label: "场馆", feedLabel: "场馆动态", section: "场馆动态", guide: "机构的开放时间、闭馆、限流、票务、预约规则、新展区、活动和征名等面向游客的公告。讲的是某只大熊猫的转运或健康时按那件事归类，不因发布方是场馆归到这里。" },
+  { key: "conservation", tagColor: "green", label: "科研保护", feedLabel: "科研与野外", section: "保护与政策", guide: "科研论文和繁育技术、野化培训与放归、野外调查、红外相机拍到的野生大熊猫、栖息地和种群数据。圈养个体的日常不算科研；政府文件和合作协议归政策。" },
+  { key: "policy", tagColor: "indigo", label: "政策合作", feedLabel: "政策与合作", section: "保护与政策", guide: "国家公园、保护法规、主管部门的通报与处罚，以及中外大熊猫保护合作协议的签署、续约和到期。具体某只大熊猫按协议启程或回国归迁移。" },
+  { key: "daily", tagColor: "violet", label: "日常", feedLabel: "熊猫日常", section: "日常", guide: "饲养员和机构发布的日常生活、吃竹子、玩耍、丰容、生日会、季节活动，周年纪念和回顾，以及科普和解读。日常可爱是正当内容，但不把日常镜头写成健康、怀孕或转运的消息。", commentary: true },
 ] as const satisfies ReadonlyArray<{ key: string; tagColor: string; label: string; feedLabel?: string; section: string; guide: string; commentary?: true }>;
 
 /**
- * 这个行业最受关注的一类发布（AI 行业是新模型）：日报报头的“N 个新模型”、改分类后修订已出的报告都按它数。
- * category 是类别，tag 是标签，两者都对上才算；unit 接在数字后面。
- * 没有这样一类的行业设成 null，报头就不显示这个数。
+ * 这个行业最受关注的一类发布：日报报头的“N 则出生消息”、改分类后修订已出的报告都按它数。
+ * 按条数，不按只数：一则双胞胎消息算一则。category 是类别，tag 是标签，两者都对上才算；unit 接在数字后面。
  */
-export const RELEASE: { category: string; tag: string; unit: string } | null = { category: "ai-models", tag: "模型发布", unit: "个新模型" };
+export const RELEASE: { category: string; tag: string; unit: string } | null = { category: "breeding", tag: "出生", unit: "则出生消息" };
 
 /** 周报月报的总述可以直接写、不必在报道里找到出处的行业通用词（小写）。站名会自动算进去。 */
-export const PLAIN_TERMS: readonly string[] = ["ai", "api", "llm", "gpu", "agi", "ceo", "ipo"];
+export const PLAIN_TERMS: readonly string[] = ["大熊猫", "熊猫", "幼崽", "饲养员", "基地", "动物园", "旅外", "国宝"];
 
 /**
  * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
  * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
  */
-export const ITEM_TYPES = ["model_release", "product_launch", "tool_or_prompt", "research_paper", "industry_event", "opinion_analysis", "tutorial_explainer"] as const;
+export const ITEM_TYPES = ["birth_breeding", "health_death", "relocation", "naming", "venue_notice", "research_conservation", "policy_cooperation", "daily_life", "explainer"] as const;
 
 // ── 标签词表 ────────────────────────────────────────────────────────────────────────────
 
 /** 每篇资料的第一个标签必须是这些“分类标签”之一。 */
 export const CATEGORY_TAGS = [
-  "产品更新", "模型发布", "论文/研究", "开源/仓库", "教程/实践", "现象/趋势", "大佬观点", "评测/基准", "安全/对齐", "行业动态", "政策/监管",
-  "非AI/通用工具", "其他",
+  "出生", "配种/怀孕", "幼崽成长", "健康", "离世", "迁移", "回国", "命名", "场馆公告", "活动", "科研", "野外/放归", "政策/合作", "日常", "纪念/回顾", "科普",
+  "其他",
 ] as const;
 
 /** 可选的主题标签。 */
 export const TOPIC_TAGS = [
-  "Agent", "编码", "推理", "多模态", "语音", "视频", "图像生成", "RAG", "端侧", "数据/训练", "搜索", "部署/工程", "开源生态", "具身智能", "MCP/工具调用",
+  "双胞胎", "幼崽", "老年大熊猫", "旅外大熊猫", "秦岭大熊猫", "生日", "饮食", "丰容", "野化培训", "国家公园", "熊猫外交", "饲养员", "直播", "游客文明",
 ] as const;
 
-/** 可选的实体标签（公司、机构、平台）。 */
-export const ENTITY_TAGS = ["OpenAI", "Anthropic", "DeepSeek", "DeepMind", "Google", "Meta", "Microsoft", "xAI", "Hugging Face", "GitHub", "arXiv"] as const;
+/** 卡片上显示成标签的机构：主体是这家机构的报道会带上它（ENTITIES 的 displayTag）。 */
+const DISPLAY_TAGS: Readonly<Record<string, string>> = {
+  "chengdu-research-base": "成都大熊猫基地",
+  ccrcgp: "中国大熊猫保护研究中心",
+  "beijing-zoo": "北京动物园",
+  "chongqing-zoo": "重庆动物园",
+  "shanghai-wild-animal-park": "上海野生动物园",
+  "qinling-panda-research-center": "秦岭大熊猫研究中心",
+  "ocean-park-hong-kong": "香港海洋公园",
+  "giant-panda-national-park": "大熊猫国家公园",
+  "smithsonian-national-zoo": "史密森国家动物园",
+  "san-diego-zoo": "圣地亚哥动物园",
+  "ueno-zoo": "上野动物园",
+};
+
+/** 可选的实体标签（机构）。 */
+export const ENTITY_TAGS: readonly string[] = Object.values(DISPLAY_TAGS);
 
 /** 模型常写的近义词，统一成词表里的写法。 */
 export const TAG_SYNONYMS: Readonly<Record<string, string>> = {
-  "教程/玩法": "教程/实践", "技巧/最佳实践": "教程/实践", "合作/生态": "行业动态", "融资/收购": "行业动态", "公司动态": "行业动态",
-  合作: "行业动态", 生态: "行业动态", 融资: "行业动态", 收购: "行业动态", 投资: "行业动态", 并购: "行业动态",
-  政策: "政策/监管", 监管: "政策/监管", 法规: "政策/监管", 安全: "安全/对齐", 对齐: "安全/对齐",
-  论文: "论文/研究", 研究: "论文/研究", paper: "论文/研究", papers: "论文/研究",
-  "open-source": "开源/仓库", 开源: "开源/仓库", 仓库: "开源/仓库", repo: "开源/仓库",
-  教程: "教程/实践", 玩法: "教程/实践", 指南: "教程/实践", 技巧: "教程/实践", 最佳实践: "教程/实践", 实践: "教程/实践",
-  产品: "产品更新", 更新: "产品更新", 发布: "模型发布", 模型: "模型发布", 趋势: "现象/趋势", 现象: "现象/趋势", 观点: "大佬观点",
-  视频生成: "视频", 非ai: "非AI/通用工具", "non-ai": "非AI/通用工具", 通用工具: "非AI/通用工具", 工程工具: "非AI/通用工具",
-  安全扫描: "非AI/通用工具", devops: "非AI/通用工具", 行业: "行业动态", 动态: "行业动态",
+  诞生: "出生", 产仔: "出生", 新生: "出生", 新生幼崽: "出生", 降生: "出生", 繁育: "配种/怀孕", 配种: "配种/怀孕", 怀孕: "配种/怀孕", 发情: "配种/怀孕",
+  成长: "幼崽成长", 满月: "幼崽成长", 百天: "幼崽成长", 断奶: "幼崽成长", 独立: "幼崽成长",
+  生病: "健康", 疾病: "健康", 治疗: "健康", 体检: "健康", 受伤: "健康", 去世: "离世", 死亡: "离世", 病逝: "离世", 讣告: "离世",
+  转运: "迁移", 搬家: "迁移", 出国: "迁移", 入住: "迁移", 隔离: "迁移", 检疫: "迁移", 归国: "回国", 回家: "回国",
+  起名: "命名", 取名: "命名", 名字: "命名", 公告: "场馆公告", 开放: "场馆公告", 闭馆: "场馆公告", 票务: "场馆公告", 预约: "场馆公告",
+  研究: "科研", 论文: "科研", 野生: "野外/放归", 野外: "野外/放归", 放归: "野外/放归", 红外相机: "野外/放归",
+  政策: "政策/合作", 合作: "政策/合作", 法规: "政策/合作", 协议: "政策/合作", 萌: "日常", 吃播: "日常", 纪念: "纪念/回顾", 周年: "纪念/回顾", 回顾: "纪念/回顾",
+  知识: "科普", 解读: "科普", 海外: "旅外大熊猫", 旅外: "旅外大熊猫", 秦岭: "秦岭大熊猫", 竹子: "饮食", 老年: "老年大熊猫",
 };
 
-// ── 公司与主体 ──────────────────────────────────────────────────────────────────────────
+// ── 机构与主体 ──────────────────────────────────────────────────────────────────────────
 
 /**
- * 公司主题：id → 显示名、卡片上显示的标签（null 表示只用 entity:<id> 归类）、别名。
- * aliases 给结构抽取模型看；orgNames 是这家公司发消息时开头用的组织名（公司、实验室、团队），
- * 在它自己的主题页上读者知道说的是谁，可以省去；otherNames 是公司的其他称呼（官方账号名、子品牌）。
- * 所有这些名字都用来认出说的是哪家公司，比如把事实的主体对到发布方。
+ * 机构主题：id → 显示名、卡片上显示的标签（null 表示只用 entity:<id> 归类）、别名。
+ * id 是吱熊猫的机构 slug（industry/institutions.ts，由 build-institutions.ts 生成）。
+ * aliases 给结构抽取模型看（提示词里每家只列前三个），所有名字都用来认出说的是哪家机构。
  */
-export const ENTITIES: Record<string, { name: string; displayTag: string | null; aliases: string[]; orgNames?: string[]; otherNames?: string[] }> = {
-  "world-labs": { name: "World Labs", displayTag: null, aliases: ["World Labs"] },
-  "thinking-machines": { name: "Thinking Machines Lab", displayTag: null, aliases: ["Thinking Machines"] },
-  amd: { name: "AMD", displayTag: null, aliases: ["AMD", "Advanced Micro Devices"] },
-  openai: { name: "OpenAI", displayTag: "OpenAI", aliases: ["OpenAI", "ChatGPT", "Sora", "Codex", "GPT"], orgNames: ["OpenAI"], otherNames: ["OpenAI Developers"] },
-  anthropic: { name: "Anthropic", displayTag: "Anthropic", aliases: ["Anthropic", "Claude"], orgNames: ["Anthropic"], otherNames: ["Claude Code"] },
-  google: { name: "Google", displayTag: "Google", aliases: ["Google", "DeepMind", "Gemini", "谷歌"], orgNames: ["Google DeepMind", "Google Research", "Google", "DeepMind", "谷歌"], otherNames: ["Google AI", "Google Labs", "Google Cloud"] },
-  deepseek: { name: "DeepSeek", displayTag: "DeepSeek", aliases: ["DeepSeek", "深度求索"], orgNames: ["DeepSeek", "深度求索"] },
-  qwen: { name: "千问 Qwen", displayTag: null, aliases: ["Qwen", "通义", "阿里"], orgNames: ["通义千问", "通义实验室", "阿里巴巴", "阿里云", "阿里", "Qwen Team", "Qwen", "Alibaba"], otherNames: ["千问", "千问APP", "Alibaba Cloud"] },
-  kimi: { name: "月之暗面 / Kimi", displayTag: null, aliases: ["Kimi", "月之暗面", "Moonshot", "Kimi / 月之暗面"], orgNames: ["Moonshot AI", "月之暗面", "Kimi"] },
-  minimax: { name: "MiniMax", displayTag: null, aliases: ["MiniMax", "海螺"], orgNames: ["MiniMax", "稀宇科技"] },
-  zhipu: { name: "智谱 GLM", displayTag: null, aliases: ["智谱", "GLM", "Z.ai"], orgNames: ["智谱AI", "智谱", "Zhipu AI", "Z.ai"], otherNames: ["Zhipu"] },
-  xai: { name: "xAI", displayTag: "xAI", aliases: ["xAI", "Grok"], orgNames: ["SpaceX Super Intelligence", "SpaceXAI", "SpaceXSI", "xAI"], otherNames: ["Grok Bot"] },
-  meta: { name: "Meta", displayTag: "Meta", aliases: ["Meta", "Llama"], orgNames: ["Meta Superintelligence Labs", "Meta AI", "Meta"], otherNames: ["AI at Meta", "Muse"] },
-  microsoft: { name: "Microsoft", displayTag: "Microsoft", aliases: ["Microsoft", "微软", "Copilot"], orgNames: ["Microsoft Research", "Microsoft AI", "Microsoft", "微软"] },
-  nvidia: { name: "NVIDIA", displayTag: null, aliases: ["NVIDIA", "英伟达"], orgNames: ["NVIDIA", "英伟达"] },
-  "hugging-face": { name: "Hugging Face", displayTag: "Hugging Face", aliases: ["Hugging Face"], orgNames: ["Hugging Face", "HuggingFace"] },
-  cursor: { name: "Cursor", displayTag: null, aliases: ["Cursor", "Anysphere"], orgNames: ["Cursor"] },
-  openrouter: { name: "OpenRouter", displayTag: null, aliases: ["OpenRouter"], orgNames: ["OpenRouter"] },
-};
+export const ENTITIES: Record<string, { name: string; displayTag: string | null; aliases: string[]; orgNames?: string[]; otherNames?: string[] }> = Object.fromEntries(
+  INSTITUTIONS.map((i) => [i.id, { name: i.nameZh, displayTag: DISPLAY_TAGS[i.id] ?? null, aliases: [...i.aliases] }]),
+);
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** 拉丁字母的名字按整词认，中文名按字面认。 */
+const namePattern = (names: readonly string[]) =>
+  new RegExp(names.map((n) => (/^[\x20-\x7e]+$/.test(n) ? `(?<![A-Za-z])${escape(n)}(?![A-Za-z])` : escape(n))).join("|"), "i");
 
 /**
- * 身份词典：摘要和标题里出现的公司，必须在原文里也出现过，否则退回原标题、丢掉摘要（防止模型张冠李戴）。
- * 行业没有这个问题时可以留空数组。
+ * 身份词典：摘要和标题里出现的机构，必须在原文里也出现过，否则退回原标题、丢掉摘要（防止模型张冠李戴，
+ * 比如把卧龙的消息写成成都基地）。
  */
-export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; patterns: RegExp[] }> = [
-  { id: "openai", name: "OpenAI", patterns: [/openai|chatgpt|\bgpt-?[o\d]|\bsora\b|\bcodex\b/i] },
-  { id: "anthropic", name: "Anthropic", patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.\-]\d+)*\b/i, /\bfable\s*\d+(?:[.\-]\d+)*\b|\bmythos\b/i] },
-  { id: "google", name: "Google / Gemini", patterns: [/google|deepmind|\bgemini\b|notebooklm|\bveo\s?\d|\bAlphaFold\b|\bAMIE\b/i] },
-  { id: "deepseek", name: "DeepSeek", patterns: [/deepseek|深度求索/i] },
-  { id: "xai", name: "xAI / Grok", patterns: [/\bxai\b|\bgrok\b/i] },
-  { id: "meta", name: "Meta / Llama", patterns: [/\bMeta\b/, /\bmeta\s?ai\b|\bllama\b/i] },
-  { id: "microsoft", name: "Microsoft / Copilot", patterns: [/microsoft|copilot|微软/i] },
-  { id: "nvidia", name: "NVIDIA", patterns: [/nvidia|英伟达|\bnemotron\b|\bnemo\b|\bblackwell\b|\brubin(?:\s+ultra)?\b|\bcuda\b/i] },
-  { id: "qwen", name: "千问 Qwen", patterns: [/\bqwen|通义|千问/i] },
-  { id: "hugging-face", name: "Hugging Face", patterns: [/hugging\s?face/i] },
-  { id: "cursor", name: "Cursor", patterns: [/\bCursor\b/] },
-  { id: "kimi", name: "月之暗面 / Kimi", patterns: [/\bkimi\b|月之暗面|\bmoonshot\s?ai\b/i] },
-  { id: "openrouter", name: "OpenRouter", patterns: [/openrouter/i] },
-  { id: "minimax", name: "MiniMax", patterns: [/minimax/i] },
-  { id: "zhipu", name: "智谱 GLM", patterns: [/智谱|\bglm-?[4-9]/i] },
-  { id: "hunyuan", name: "腾讯混元", patterns: [/混元|hunyuan/i] },
-  { id: "doubao", name: "字节豆包", patterns: [/豆包|doubao|字节跳动|bytedance/i] },
-  { id: "mistral", name: "Mistral", patterns: [/mistral/i] },
-  { id: "perplexity", name: "Perplexity", patterns: [/\bPerplexity\b/] },
-  { id: "runway", name: "Runway", patterns: [/\brunway\b/i] },
-  { id: "suno", name: "Suno", patterns: [/\bsuno\b/i] },
-  { id: "midjourney", name: "Midjourney", patterns: [/midjourney/i] },
-  { id: "stability-ai", name: "Stability AI", patterns: [/stability\s?ai/i] },
-  { id: "elevenlabs", name: "ElevenLabs", patterns: [/eleven\s?labs/i] },
-  { id: "vllm", name: "vLLM", patterns: [/\bvllm\b/i] },
-  { id: "ollama", name: "Ollama", patterns: [/\bollama\b/i] },
-  { id: "windsurf", name: "Windsurf", patterns: [/windsurf/i] },
-  { id: "devin", name: "Devin", patterns: [/\bdevin\b/i] },
-  { id: "manus", name: "Manus", patterns: [/\bmanus\b/i] },
-  { id: "apple", name: "Apple AI", patterns: [/\bapple\s?(intelligence|silicon|ai)\b|苹果(智能|\s?AI)/i] },
-  { id: "amazon", name: "Amazon / AWS", patterns: [/amazon|\baws\b|亚马逊/i] },
-  { id: "baidu", name: "百度文心", patterns: [/百度|baidu|文心|\bernie\s?bot\b/i] },
-];
+export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; patterns: RegExp[] }> = INSTITUTIONS.map((i) => ({
+  id: i.id, name: i.nameZh, patterns: [namePattern(i.aliases)],
+}));
 
-/** 这些域名上的文章，发布方就是对应的公司（托管平台如 GitHub、arXiv 不算）。 */
-export const PUBLISHER_DOMAINS: ReadonlyArray<{ entityId: string; domains: readonly string[] }> = [
-  { entityId: "openai", domains: ["openai.com"] },
-  { entityId: "anthropic", domains: ["anthropic.com", "claude.com"] },
-  { entityId: "google", domains: ["deepmind.google", "ai.google", "blog.google"] },
-  { entityId: "deepseek", domains: ["deepseek.com"] },
-  { entityId: "xai", domains: ["x.ai"] },
-  { entityId: "meta", domains: ["ai.meta.com"] },
-  { entityId: "microsoft", domains: ["microsoft.com"] },
-  { entityId: "nvidia", domains: ["nvidia.com"] },
-  { entityId: "qwen", domains: ["qwen.ai"] },
-  { entityId: "cursor", domains: ["cursor.com"] },
-  { entityId: "openrouter", domains: ["openrouter.ai"] },
-];
+/** 这些域名上的文章，发布方就是对应的机构。 */
+export const PUBLISHER_DOMAINS: ReadonlyArray<{ entityId: string; domains: readonly string[] }> = INSTITUTIONS.filter((i) => i.domains.length > 0).map((i) => ({
+  entityId: i.id, domains: i.domains,
+}));
 
-/** 原文里的这些写法也算提到了对应公司。 */
-export const IDENTITY_CONTEXT_ALIASES: ReadonlyArray<{ entityId: string; pattern: RegExp }> = [
-  { entityId: "meta", pattern: /@AIatMeta\b/i },
-  { entityId: "zhipu", pattern: /\bZhipu(?:\s+AI\b|['’]s\b)/i },
-];
+/** 原文里的这些写法也算提到了对应机构。 */
+export const IDENTITY_CONTEXT_ALIASES: ReadonlyArray<{ entityId: string; pattern: RegExp }> = [];
