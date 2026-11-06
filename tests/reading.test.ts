@@ -66,22 +66,22 @@ test("a folded card's other sources are those of the fact its representative rep
 });
 
 test("a query that names an institution also finds the articles about it", async () => {
-  const about = await report(MEDIA, { selected: false, hoursAgo: 3, subjects: ["zoo-berlin"], title: `双胞胎两岁生日会 ${T}` });
-  const mention = await report(MEDIA, { selected: false, hoursAgo: 4, title: `zoo berlin 被一篇盘点顺带提到 ${T}` });
+  const about = await report(MEDIA, { selected: false, hoursAgo: 3, subjects: ["ccrcgp"], title: `双胞胎两岁生日会 ${T}` });
+  const mention = await report(MEDIA, { selected: false, hoursAgo: 4, title: `ccrcgp 被一篇盘点顺带提到 ${T}` });
   const other = await report(MEDIA, { selected: false, hoursAgo: 5, title: `无关的新闻 ${T}` });
   for (const id of [about, mention, other]) await publishArticle(id);
   const search = async (q: string, tab = "") => {
     const res = await app.inject({ method: "GET", url: `/api/site/pool?q=${encodeURIComponent(q)}${tab}` });
     return (JSON.parse(res.body).items as Array<{ id: string }>).map((i) => i.id);
   };
-  const latest = await search("Zoo Berlin");
-  assert.ok(latest.includes(about), "the Zoo Berlin subject without the words");
+  const latest = await search("CCRCGP");
+  assert.ok(latest.includes(about), "the CCRCGP subject without the word");
   assert.ok(latest.includes(mention), "text matches stay");
   assert.ok(!latest.includes(other));
-  const relevance = await search("zoo berlin", "&tab=relevance");
+  const relevance = await search("ccrcgp", "&tab=relevance");
   assert.ok(relevance.indexOf(about) >= 0 && relevance.indexOf(about) < relevance.indexOf(mention), "the subject ranks first");
   // Only the whole query names the institution: a narrower search stays a text search.
-  assert.ok(!(await search(`zoo berlin ${T}-nothing`)).includes(about));
+  assert.ok(!(await search(`ccrcgp ${T}-nothing`)).includes(about));
 });
 
 test("bare addresses in post text become safe links", () => {
