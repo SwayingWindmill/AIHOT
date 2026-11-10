@@ -518,7 +518,8 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
   if (sourceKind === "x_search" || sourceKind === "mp_account" || isVideoPageUrl(url)) return false;
   try {
     const u = new URL(url);
-    return /^https?:$/.test(u.protocol) && !/(^|\.)(x\.com|twitter\.com|mp\.weixin\.qq\.com)$/i.test(u.hostname);
+    // Google News article links are encoded redirects to a script page: no read of them gives the article.
+    return /^https?:$/.test(u.protocol) && !/(^|\.)(x\.com|twitter\.com|mp\.weixin\.qq\.com)$/i.test(u.hostname) && u.hostname !== "news.google.com";
   } catch {
     return false;
   }

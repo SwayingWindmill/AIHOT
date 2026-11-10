@@ -73,6 +73,14 @@ test("actual textual feed content stays usable, while a video summary never beco
   assert.equal((await read("/article-with-video.xml"))[0]!.bodyStatus, "pending", "an article can have an accompanying video and still need its article body");
 });
 
+test("Google News article links are not fetched: they are encoded redirects to a script page", () => {
+  // Fetching one, or reading it through Jina, never gives the article; the feed's title and source are the text.
+  assert.equal(pageFetchable("https://news.google.com/rss/articles/CBMiTEFVX3lxTE40SE5RQ19EbV9n?oc=5", "rss"), false);
+  for (const url of ["https://news.google.com.example/rss/articles/x", "https://www.google.com/news/article", "https://blog.google/news/post"]) {
+    assert.equal(pageFetchable(url, "rss"), true, url);
+  }
+});
+
 test("known video pages cannot pass the generic body reader or page-fetch policy", () => {
   for (const url of videoUrls) {
     assert.equal(pageFetchable(url, "rss"), false, url);
