@@ -25,6 +25,16 @@ test("a bare date is midnight in the source's offset, including ISO date-only te
   assert.equal(iso("September 26th, 2026", "+00:00"), "2026-09-26T00:00:00.000Z");
 });
 
+test("a dotted date is day first, as European sites print it", () => {
+  // Tiergarten Schönbrunn lists "2.11.2026", Pairi Daiza "26.10.2026".
+  assert.equal(iso("26.10.2026", "+01:00"), "2026-10-25T23:00:00.000Z");
+  assert.equal(iso("2.11.2026", "+01:00"), "2026-11-01T23:00:00.000Z");
+  assert.equal(iso("2.11.2026 10:30", "+01:00"), "2026-11-02T09:30:00.000Z");
+  // Year first stays year first, and a day that does not exist is no date.
+  assert.equal(iso("2026.11.02", "+00:00"), "2026-11-02T00:00:00.000Z");
+  assert.equal(iso("31.11.2026"), null);
+});
+
 test("a date that carries its zone keeps it", () => {
   assert.equal(iso("2026-09-26T10:00:00Z"), "2026-09-26T10:00:00.000Z");
   assert.equal(iso("2026-09-26T10:00:00.000+09:00"), "2026-09-26T01:00:00.000Z");
