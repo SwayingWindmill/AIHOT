@@ -45,6 +45,8 @@ export const config = {
   allowPrivateNetworkFetch: bool("ALLOW_PRIVATE_NETWORK_FETCH", false),
   /** Whole host names of self-hosted feed services on private addresses; only listing fetches use them. */
   privateFeedHosts: (env.PRIVATE_FEED_HOSTS || "").split(",").map((v) => v.trim().toLowerCase()).filter(Boolean),
+  /** A local proxy's fake-ip ranges (Clash/mihomo: 198.18.0.0/16) that resolved names may fall in; benchmark space only. */
+  fakeIpRanges: (env.FAKE_IP_RANGES || "").split(",").map((v) => v.trim()).filter(Boolean),
   feishuContentPushEnabled: bool("FEISHU_CONTENT_PUSH_ENABLED", false),
   indexNowSubmitEnabled: bool("INDEXNOW_SUBMIT_ENABLED", false),
   /** IndexNow key (32 hex characters); without one nothing is submitted and no key file is served. */
