@@ -1,5 +1,5 @@
 {
-  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。这几个是用引擎自己的抓取代码对着线上页面试抓成功的饲养机构官网（2026-11-06 三个，2026-11-10 又加十一个，含 Google 新闻、Reddit 和中新网）；它们发的不全是大熊猫，预筛会拦下其余的。中新网滚动新闻用 ingestNoiseFilter 先丢掉所有条目（dropMarkersTitleOnly 是空字符串），只留带熊猫字样的，其余的不送去模型。国内机构的微博、抖音、小红书和公众号由吱熊猫的采集系统推送（external），不在这里。",
+  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。这几个是用引擎自己的抓取代码对着线上页面试抓成功的饲养机构官网（2026-11-06 三个，2026-11-10 又加十个，含 Google 新闻和中新网）；它们发的不全是大熊猫，预筛会拦下其余的。中新网滚动新闻用 ingestNoiseFilter 先丢掉所有条目（dropMarkersTitleOnly 是空字符串），只留带熊猫字样的，其余的不送去模型。国内机构的微博、抖音、小红书和公众号由吱熊猫的采集系统推送（external），不在这里。",
   "sources": [
     {
       "id": "web-smithsonian-national-zoo-news",
@@ -247,22 +247,6 @@
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": ["媒体", "聚合"],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-reddit-panda",
-      "name": "Reddit r/panda",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://old.reddit.com/r/panda/.rss",
-        "_aihot": { "initialBackfillLimit": 8 }
-      },
-      "tier": "T2",
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 240,
-      "tags": ["粉丝", "社区"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
