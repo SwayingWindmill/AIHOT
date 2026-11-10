@@ -10,7 +10,7 @@ import { Agent, fetch as undiciFetch } from "undici";
 import { config } from "@aihot/backend/config";
 import { guardedFetch } from "@aihot/backend/lib/http-fetch";
 import { fetchListing } from "@aihot/backend/sources/listing-fetch";
-import { assertPublicUrl, guardedLookup, isBlockedAddress } from "@aihot/backend/lib/url";
+import { assertPublicUrl, configureFakeIpRanges, guardedLookup, isBlockedAddress } from "@aihot/backend/lib/url";
 
 let hits = 0;
 const server = http.createServer((_req, res) => { hits++; res.end("public content"); });
@@ -119,6 +119,37 @@ test("the connection guard refuses private, mixed, reserved and empty DNS answer
 // opens link-local or cloud metadata; the exception reaches bodies, details, images, icons or another
 // host through a redirect; the URL check allows it but the connection dials an unchecked answer; the
 // listed service is sent through the egress proxy.
+test("a proxy's fake-ip range lets names resolve into it, never a literal, and nothing outside it", async () => {
+  // Clash/mihomo in fake-ip mode answers every name with 198.18.x.x and routes the connection itself.
+  const answer = (address: string) => async () => [address];
+  await assert.rejects(assertPublicUrl("https://www.panda.org.cn/", false, answer("198.18.0.79")), /Blocked private address/);
+  configureFakeIpRanges(["198.18.0.0/16"]);
+  try {
+    assert.equal((await assertPublicUrl("https://www.panda.org.cn/", false, answer("198.18.0.79"))).hostname, "www.panda.org.cn");
+    // The address itself means nothing without the name the proxy mapped it from.
+    await assert.rejects(assertPublicUrl("http://198.18.0.79/"), /Blocked private address/);
+    await assert.rejects(assertPublicUrl("https://x.invalid/", false, answer("198.19.0.1")), /Blocked private address/, "outside the configured range");
+    await assert.rejects(assertPublicUrl("https://x.invalid/", false, answer("127.0.0.1")), /Blocked private address/);
+    let lookups = 0;
+    mock.method(dns, "lookup", async () => { lookups++; return [{ address: "198.18.3.4", family: 4 }]; });
+    syncBuiltinESMExports();
+    try {
+      const got = await new Promise<string>((resolve, reject) => guardedLookup("www.chinanews.com.cn", {}, (err, address) => err ? reject(err) : resolve(address as string)));
+      assert.equal(got, "198.18.3.4");
+      assert.equal(lookups, 1);
+    } finally {
+      mock.restoreAll(); syncBuiltinESMExports();
+    }
+  } finally {
+    configureFakeIpRanges([]);
+  }
+  await assert.rejects(assertPublicUrl("https://www.panda.org.cn/", false, answer("198.18.0.79")), /Blocked private address/, "off again");
+  // Only benchmark space can be opened: a range that reaches loopback, private or public addresses is refused.
+  for (const range of ["0.0.0.0/0", "127.0.0.0/8", "198.0.0.0/8", "10.0.0.0/8", "198.18.0.0/14", "fdfe:dcba:9876::/64", "198.18.0.0", "nonsense"]) {
+    assert.throws(() => configureFakeIpRanges([range]), /FAKE_IP_RANGES/, range);
+  }
+});
+
 test("a listed private feed host may resolve to private service addresses, never to link-local or metadata", async () => {
   const answers: Record<string, string[]> = {};
   const resolve = async (host: string) => answers[host] ?? [];

@@ -3,7 +3,7 @@ import net from "node:net";
 import { addAbortListener } from "node:events";
 import { Agent, Pool, ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { config } from "../config.ts";
-import { assertPublicUrl, guardedLookup } from "./url.ts";
+import { assertPublicUrl, configureFakeIpRanges, guardedLookup } from "./url.ts";
 import { createEgressProxy, createEgressResolver, OUTBOUND_HTTP_OPTIONS } from "./egress-proxy.ts";
 import { DEPLOYMENT, SITE } from "@aihot/site";
 
@@ -19,6 +19,9 @@ import { DEPLOYMENT, SITE } from "@aihot/site";
  * PRIVATE_FEED_HOSTS is connected directly too.
  */
 export type EgressRoute = "egress" | "direct";
+
+// An invalid FAKE_IP_RANGES stops the process at start instead of fetching with an unintended guard.
+configureFakeIpRanges(config.fakeIpRanges);
 
 let proxyAgent: ProxyAgent | null = null;
 let directAgent: Agent | null = null;

@@ -17,6 +17,8 @@
 
 抓取默认不连内网地址。订阅或列表地址指向自建在内网的服务时（比如同一 Docker 网络里的 RSSHub，地址写 `http://rsshub:1200/...`），在 `.env` 里设 `PRIVATE_FEED_HOSTS=rsshub`（逗号分隔的完整主机名，不区分大小写），重启 API 和 worker。放行只对 `rss` 的 `feedUrl`、`web_list` 与 `json_list` 的 `url` 本身生效，这些主机直连、不走 `EGRESS_PROXY_URL`；跳转到别的主机、文章正文、详情页、图片和图标仍按原规则拒绝内网地址，链路本地和云元数据地址（`169.254.0.0/16`、`100.100.100.200` 等）任何时候都拒绝。
 
+部署机的代理用 fake-ip 模式时（Clash、mihomo 开 TUN 常见这种设置），每个域名都解析成 `198.18.x.x`，抓取会全部报 `Blocked private address`。在 `.env` 里设 `FAKE_IP_RANGES=198.18.0.0/16`（代理的假 IP 段，逗号分隔，只能填 `198.18.0.0/15` 以内的网段），重启 API 和 worker：域名解析到这个段时放行，网址里直接写的 `198.18.x.x` 仍然拒绝。
+
 每种信源认哪些配置项写在 [`config-keys.ts`](../packages/backend/src/sources/config-keys.ts)。填了不认识的配置项，保存会被拒绝、抓取会直接失败并在后台显示原因，不会悄悄退回通用解析。
 
 ## 先预览，再创建

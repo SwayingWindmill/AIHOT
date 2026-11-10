@@ -171,8 +171,36 @@ function privateServiceAddress(address: string): boolean {
   return (g[0]! & 0xfe00) === 0xfc00 && !(g[0] === 0xfd00 && g[1] === 0xec2 && g.slice(2, 7).every((x) => x === 0) && g[7] === 0x254);
 }
 
-/** A listed private feed host (PRIVATE_FEED_HOSTS) may also use private service addresses. */
-function refusedAddress(address: string, listed: boolean): boolean {
+/**
+ * The fake-ip range of a proxy that answers every name with an address of its own and routes the
+ * connection by that name (Clash/mihomo in fake-ip mode: 198.18.0.0/16). Only benchmark space
+ * (198.18.0.0/15) can be listed, which nothing else on the network uses, so a wrong value cannot open
+ * loopback, private or metadata addresses.
+ */
+let fakeIps: net.BlockList | null = null;
+const benchmark = new net.BlockList();
+benchmark.addSubnet("198.18.0.0", 15);
+
+export function configureFakeIpRanges(ranges: readonly string[]): void {
+  const list = new net.BlockList();
+  for (const range of ranges) {
+    const [address = "", bits = ""] = range.trim().split("/");
+    const prefix = /^\d{1,2}$/.test(bits) ? Number(bits) : -1;
+    // A prefix of /15 or longer whose address lies in 198.18.0.0/15 stays inside it.
+    if (!net.isIPv4(address) || prefix < 15 || prefix > 32 || !benchmark.check(address)) {
+      throw new Error(`FAKE_IP_RANGES: ${range} is not a range inside 198.18.0.0/15`);
+    }
+    list.addSubnet(address, prefix);
+  }
+  fakeIps = ranges.length ? list : null;
+}
+
+/**
+ * A listed private feed host (PRIVATE_FEED_HOSTS) may also use private service addresses; a name may
+ * resolve into the proxy's fake-ip range (an address literal never: the proxy maps it back to the name).
+ */
+function refusedAddress(address: string, listed: boolean, resolvedName = false): boolean {
+  if (resolvedName && fakeIps && net.isIPv4(address) && fakeIps.check(address)) return false;
   return isBlockedAddress(address) && !(listed && privateServiceAddress(address));
 }
 
@@ -198,7 +226,7 @@ export async function assertPublicUrl(url: string, allowPrivate = false, resolve
   const addresses = literal ? [{ address: host }] : resolve ? (await resolve(host)).map((address) => ({ address })) : await lookup(host, { all: true });
   if (addresses.length === 0) throw new Error(`No address for ${host}`);
   for (const { address } of addresses) {
-    if (refusedAddress(address, listed)) throw new Error(`Blocked private address for ${host}`);
+    if (refusedAddress(address, listed, !literal)) throw new Error(`Blocked private address for ${host}`);
   }
   return u;
 }
@@ -219,7 +247,7 @@ export function guardedLookup(hostname: string, options: { all?: boolean; family
   }
   lookup(hostname, { all: true, family: opts.family ?? 0 }).then(
     (list) => {
-      const bad = list.find((a) => refusedAddress(a.address, listed));
+      const bad = list.find((a) => refusedAddress(a.address, listed, net.isIP(hostname) === 0));
       if (bad || list.length === 0) {
         callback(Object.assign(new Error(`Blocked private address for ${hostname}`), { code: "EBLOCKED" }), opts.all ? [] : "", 0);
         return;
