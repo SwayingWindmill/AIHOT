@@ -11,7 +11,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
   rss: [...COLLECTED, "feedUrl", "summaryIsBody", "preserveUrlFragment", "allowCategories", "denyCategories", "publishedAtUtcOffset"],
   web_list: [
     ...COLLECTED, "url", "baseUrl", "parseMode", "adapter", "cacheToleranceSeconds", "linksStartLine", "preserveUrlFragment",
-    "itemSelector", "linkSelector", "titleSelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset",
+    "itemSelector", "linkSelector", "linkAttribute", "linkRegex", "titleSelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset",
   ],
   json_list: [
     ...COLLECTED, "url", "mode", "method", "headers", "bodyJson", "jsonKey", "windowVar", "itemsPath", "itemsObjectValues",
@@ -61,6 +61,12 @@ function utcInstant(value: unknown): boolean {
   return Number.isFinite(date.getTime()) && date.toISOString() === (value.includes(".") ? value : value.replace(/Z$/, ".000Z"));
 }
 
+/** A `linkRegex` compiles, names the link in a capture group, and reads an attribute `linkAttribute` chose. */
+function linkPattern(value: unknown, attribute: unknown): boolean {
+  if (typeof value !== "string" || typeof attribute !== "string") return false;
+  try { return new RegExp(`${value}|`).exec("")!.length > 1; } catch { return false; }
+}
+
 /** The config entries a source of this kind would ignore or cannot run, e.g. ["adapter=site_cards", "detail.titleFoo"]. */
 export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string, unknown>): string[] {
   const allowed = new Set(KEYS[kind] ?? []);
@@ -75,6 +81,8 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
       if (typeof v !== "string") return false;
       try { const u = new URL(v); return /^https?:$/.test(u.protocol) && !u.username && !u.password && !u.search && !u.hash; } catch { return false; }
     }))) out.push(key);
+    else if (key === "linkRegex" && !linkPattern(value, config.linkAttribute)) out.push(key);
+    else if (key === "linkAttribute" && (typeof value !== "string" || !/^[a-z][a-z0-9-]*$/i.test(value))) out.push(key);
     else if (VALUES[key] && !VALUES[key]!.includes(String(value))) out.push(`${key}=${String(value)}`);
     else if (NESTED[key] && value && typeof value === "object") {
       for (const sub of Object.keys(value)) if (!NESTED[key]!.includes(sub)) out.push(`${key}.${sub}`);

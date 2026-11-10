@@ -1,5 +1,6 @@
 // Web list pages: HTML with selectors, Markdown through Jina Reader, and dated changelog sections.
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import { marked } from "marked";
 import { guardedFetch, languageHeaders, requireOk } from "../lib/http-fetch.ts";
 import { contentDocument, UnavailablePageError } from "../lib/page-content.ts";
@@ -144,6 +145,19 @@ export function fromMarkdown(md: string, base: string, source: SourceRow): Candi
   return out;
 }
 
+/** A listing item's link element: `linkSelector`, else its first link, or what carries `linkAttribute`. */
+function linkElement(el: cheerio.Cheerio<AnyNode>, c: SourceRow["config"]): cheerio.Cheerio<AnyNode> {
+  if (c.linkSelector) return el.is(c.linkSelector) ? el : el.find(c.linkSelector).first();
+  if (c.linkAttribute) return el.is(`[${c.linkAttribute}]`) ? el : el.find(`[${c.linkAttribute}]`).first();
+  return el.is("a") ? el : el.find("a[href]").first();
+}
+
+/** Its `href`, or the attribute `linkAttribute` names (a site that opens posts from `onclick`), cut to the first group of `linkRegex`. */
+function linkOf(linkEl: cheerio.Cheerio<AnyNode>, c: SourceRow["config"]): string | undefined {
+  const value = linkEl.attr(c.linkAttribute ?? "href");
+  return c.linkRegex && value !== undefined ? new RegExp(c.linkRegex).exec(value)?.[1] : value;
+}
+
 export function fromHtml(html: string, base: string, source: SourceRow): Candidate[] {
   const c = source.config;
   const $ = cheerio.load(html);
@@ -156,8 +170,8 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
   const nodes = itemSel ? $(itemSel).toArray() : $("a[href]").toArray();
   for (const node of nodes) {
     const el = $(node);
-    const linkEl = c.linkSelector ? (el.is(c.linkSelector) ? el : el.find(c.linkSelector).first()) : el.is("a") ? el : el.find("a[href]").first();
-    const url = absolute(linkEl.attr("href"), base);
+    const linkEl = linkElement(el, c);
+    const url = absolute(linkOf(linkEl, c), base);
     if (!url || seen.has(url) || !allowed(url, source)) continue;
     // A card or a nav link to the site's sign-in form is no post.
     if (isSignInUrl(url)) continue;

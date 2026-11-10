@@ -106,6 +106,25 @@ test("anchors into the listing page itself are navigation, not posts", () => {
   assert.deepEqual(out.map((c) => c.url), ["https://example.org/blog/mimo-v2-6-tool-call"]);
 });
 
+test("a listing that links its posts from another attribute reads the link out of it", () => {
+  // panda.org.cn opens each post from an onclick handler; its cards carry no href.
+  const html = [
+    `<div class="item" onclick="sethref('/cn/news/news/2026-11-06/8899.html')"><div class="title">志愿者培训圆满落幕</div></div>`,
+    `<div class="item" onclick="sethref('/cn/news/news/2026-10-08/8892.html',2,1)"><div class="title">十月基地动态</div></div>`,
+    `<div class="item" onclick="track()"><div class="title">没有链接的卡片</div></div>`,
+  ].join("");
+  const config = { url: "https://example.org/cn/news/", itemSelector: ".item", titleSelector: ".title", linkAttribute: "onclick", linkRegex: String.raw`sethref\('([^']+)'` };
+  assert.deepEqual(unsupportedConfig("web_list", config), []);
+  assert.deepEqual(fromHtml(html, "https://example.org/cn/news/", source(config)).map((c) => [c.url, c.title]), [
+    ["https://example.org/cn/news/news/2026-11-06/8899.html", "志愿者培训圆满落幕"],
+    ["https://example.org/cn/news/news/2026-10-08/8892.html", "十月基地动态"],
+  ]);
+  // A pattern needs one capture group to name the link, and must compile.
+  assert.deepEqual(unsupportedConfig("web_list", { ...config, linkRegex: "sethref" }), ["linkRegex"]);
+  assert.deepEqual(unsupportedConfig("web_list", { ...config, linkRegex: "(" }), ["linkRegex"]);
+  assert.deepEqual(unsupportedConfig("web_list", { url: "https://example.org/", linkRegex: "x(.+)" }), ["linkRegex"]);
+});
+
 test("posts addressed by a query on the listing's path are posts, its pages and filters are not", () => {
   // WordPress plain permalinks: every post is /?p=N on the listing's own path.
   const links: [string, string][] = [
