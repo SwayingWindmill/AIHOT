@@ -1,5 +1,5 @@
 {
-  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。这几个是 2026-11-06 用引擎自己的抓取代码对着线上页面试抓成功的饲养机构官网；它们发的不全是大熊猫，预筛会拦下其余的。国内机构的微博、抖音、小红书和公众号由吱熊猫的采集系统推送（external），不在这里。",
+  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。这几个是用引擎自己的抓取代码对着线上页面试抓成功的饲养机构官网（2026-11-06 三个，2026-11-10 又加四个）；它们发的不全是大熊猫，预筛会拦下其余的。国内机构的微博、抖音、小红书和公众号由吱熊猫的采集系统推送（external），不在这里。",
   "sources": [
     {
       "id": "web-smithsonian-national-zoo-news",
@@ -55,6 +55,94 @@
       },
       "tier": "T1",
       "owner_entity_id": "adelaide-zoo",
+      "participation_mode": "editorial",
+      "interval_minutes": 240,
+      "tags": ["官方", "旅外"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-chengdu-research-base-news",
+      "name": "成都大熊猫繁育研究基地（基地动态）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.panda.org.cn/cn/news/news/",
+        "parseMode": "html",
+        "itemSelector": "[onclick*=\"sethref('/cn/news/news/20\"]",
+        "linkAttribute": "onclick",
+        "linkRegex": "sethref\\('([^']+)'",
+        "titleSelector": ".title",
+        "publishedAtSelector": ".time",
+        "allowUrlPrefixes": ["https://www.panda.org.cn/cn/news/news/"],
+        "_aihot": { "initialBackfillLimit": 8 }
+      },
+      "tier": "T1",
+      "owner_entity_id": "chengdu-research-base",
+      "participation_mode": "editorial",
+      "interval_minutes": 240,
+      "tags": ["官方", "国内"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-chengdu-research-base-truth",
+      "name": "成都大熊猫繁育研究基地（辟谣专区）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.panda.org.cn/cn/news/truth/",
+        "parseMode": "html",
+        "itemSelector": "[onclick*=\"sethref('/cn/news/truth/20\"]",
+        "linkAttribute": "onclick",
+        "linkRegex": "sethref\\('([^']+)'",
+        "titleSelector": ".title",
+        "publishedAtSelector": ".time",
+        "allowUrlPrefixes": ["https://www.panda.org.cn/cn/news/truth/"],
+        "_aihot": { "initialBackfillLimit": 8 }
+      },
+      "tier": "T1",
+      "owner_entity_id": "chengdu-research-base",
+      "participation_mode": "editorial",
+      "interval_minutes": 240,
+      "tags": ["官方", "国内", "辟谣"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-copenhagen-zoo-news",
+      "name": "哥本哈根动物园（新闻）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.zoo.dk/nyheder",
+        "parseMode": "html",
+        "itemSelector": "li:has(> div h2 a)",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2 a",
+        "publishedAtSelector": "time[datetime]",
+        "allowUrlPrefixes": ["https://www.zoo.dk/artikler/"],
+        "_aihot": { "initialBackfillLimit": 8 }
+      },
+      "tier": "T1",
+      "owner_entity_id": "copenhagen-zoo",
+      "participation_mode": "editorial",
+      "interval_minutes": 240,
+      "tags": ["官方", "旅外"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ouwehands-zoo-news",
+      "name": "欧维汉德动物园（新闻）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ouwehand.nl/ontdek-het-park/nieuws-evenementen",
+        "parseMode": "html",
+        "itemSelector": "a.card[href^=\"/nieuws/\"]",
+        "titleSelector": "h3.heading-s",
+        "allowUrlPrefixes": ["https://www.ouwehand.nl/nieuws/"],
+        "_aihot": { "initialBackfillLimit": 8 }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ouwehands-zoo",
       "participation_mode": "editorial",
       "interval_minutes": 240,
       "tags": ["官方", "旅外"],
